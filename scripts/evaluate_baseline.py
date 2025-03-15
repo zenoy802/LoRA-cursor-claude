@@ -19,6 +19,10 @@ def evaluate_multiple_choice(model, tokenizer, dataset, max_length=2048, batch_s
     model.eval()
     correct = 0
     total = 0
+
+    # TODO: find the reason of padding and not padding
+    if tokenizer.pad_token is None:
+            tokenizer.add_special_tokens({'pad_token': '[PAD]'})
     
     for i in tqdm(range(0, len(dataset), batch_size), desc="Evaluating"):
         batch = dataset[i:i+batch_size]

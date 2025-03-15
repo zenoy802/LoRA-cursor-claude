@@ -84,11 +84,11 @@ def prepare_ceval_dataset(dataset_path, tokenizer):
                 task_dataset = load_from_disk(task_dir)
                 
                 # 添加任务名称字段，用于后续分析
-                if "validation" in task_dataset:
-                    task_dataset["validation"] = task_dataset["validation"].map(
+                if "val" in task_dataset:
+                    task_dataset["val"] = task_dataset["val"].map(
                         lambda x: {"task": task_name}, remove_columns=[]
                     )
-                    all_validation.append(task_dataset["validation"])
+                    all_validation.append(task_dataset["val"])
                 
                 if "test" in task_dataset:
                     task_dataset["test"] = task_dataset["test"].map(
@@ -102,7 +102,7 @@ def prepare_ceval_dataset(dataset_path, tokenizer):
     combined_validation = concatenate_datasets(all_validation) if all_validation else None
     combined_test = concatenate_datasets(all_test) if all_test else None
     
-    if combined_validation is None and combined_test is None:
+    if combined_validation is None or combined_test is None:
         raise ValueError("无法加载任何C-Eval数据集")
     
     # 返回合并后的数据集
@@ -117,6 +117,7 @@ def prepare_mmlu_dataset(dataset_path, tokenizer):
     
     # 加载数据集
     mmlu_dataset = load_from_disk(dataset_path)
+    print(mmlu_dataset)
     
     # 只使用验证集和测试集
     return DatasetDict({
@@ -127,6 +128,10 @@ def prepare_mmlu_dataset(dataset_path, tokenizer):
 def main(args):
     # 加载tokenizer
     tokenizer = LlamaTokenizer.from_pretrained(args.model_name_or_path)
+
+    # TODO: find the reason of padding and not padding
+    if tokenizer.pad_token is None:
+        tokenizer.add_special_tokens({'pad_token': '[PAD]'})
     
     # 确保输出目录存在
     os.makedirs(args.output_dir, exist_ok=True)
