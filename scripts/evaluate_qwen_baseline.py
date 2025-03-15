@@ -90,11 +90,52 @@ def evaluate_datasets(model, tokenizer, eval_datasets, results_dir, device="cuda
     
     for dataset_name, dataset in eval_datasets.items():
         print(f"评估基础模型在 {dataset_name} 上的性能...")
-        dataset_result = evaluate_multiple_choice(
-            model, tokenizer, dataset["test"], device=device
-        )
-        base_results[dataset_name] = dataset_result
-        print(f"基础模型在 {dataset_name} 上的准确率: {dataset_result['accuracy']:.4f}")
+        
+        # 检查数据集是否有task字段，如果有，说明是CEVAL或CMMLU等中文数据集，需要分任务评估
+        if "task" in dataset["test"].column_names:
+            # 按任务分组评估
+            tasks = dataset["test"].unique("task")
+            task_results = {}
+            total_correct = 0
+            total_samples = 0
+            
+            for task in tasks:
+                task_dataset = dataset["test"].filter(lambda x: x["task"] == task)
+                print(f"  评估任务: {task} (样本数: {len(task_dataset)})")
+                
+                task_result = evaluate_multiple_choice(
+                    model, tokenizer, task_dataset, device=device
+                )
+                
+                task_results[task] = task_result
+                total_correct += task_result["correct"]
+                total_samples += task_result["total"]
+                
+                print(f"  任务 {task} 准确率: {task_result['accuracy']:.4f}")
+            
+            # 计算整体准确率
+            overall_accuracy = total_correct / total_samples if total_samples > 0 else 0
+            
+            # 保存各任务结果和整体结果
+            base_results[dataset_name] = {
+                "task_results": task_results,
+                "overall": {
+                    "accuracy": overall_accuracy,
+                    "correct": total_correct,
+                    "total": total_samples
+                }
+            }
+            
+            print(f"基础模型在 {dataset_name} 上的整体准确率: {overall_accuracy:.4f}")
+        else:
+            # 常规评估（如MMLU等英文数据集）
+            dataset_result = evaluate_multiple_choice(
+                model, tokenizer, dataset["test"], device=device
+            )
+            base_results[dataset_name] = {
+                "overall": dataset_result
+            }
+            print(f"基础模型在 {dataset_name} 上的准确率: {dataset_result['accuracy']:.4f}")
     
     results["base_model"] = base_results
     
@@ -103,8 +144,9 @@ def evaluate_datasets(model, tokenizer, eval_datasets, results_dir, device="cuda
     with open(os.path.join(results_dir, "qwen_baseline_results.json"), "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
     
-    # 绘制柱状图
-    plot_bar_chart(base_results, os.path.join(results_dir, "qwen_baseline_chart.png"))
+    # 绘制柱状图 - 只使用整体结果
+    plot_bar_chart({k: v["overall"] for k, v in base_results.items()}, 
+                   os.path.join(results_dir, "qwen_baseline_chart.png"))
     
     return results
 
@@ -161,6 +203,12 @@ def main(args):
     ceval_dataset = load_from_disk(args.ceval_path)
     eval_datasets["C-Eval"] = ceval_dataset
     
+    # 加载CMMLU数据集（如果提供）
+    if args.cmmlu_path and os.path.exists(args.cmmlu_path):
+        print("加载CMMLU数据集...")
+        cmmlu_dataset = load_from_disk(args.cmmlu_path)
+        eval_datasets["CMMLU"] = cmmlu_dataset
+    
     # 加载MMLU数据集（英文能力）
     print("加载MMLU数据集...")
     mmlu_dataset = load_from_disk(args.mmlu_path)
@@ -195,6 +243,8 @@ if __name__ == "__main__":
                         help="基础模型路径")
     parser.add_argument("--ceval_path", type=str, default="processed_data_qwen/ceval_dataset", 
                         help="C-Eval数据集路径")
+    parser.add_argument("--cmmlu_path", type=str, default="processed_data_qwen/cmmlu_dataset", 
+                        help="CMMLU数据集路径")
     parser.add_argument("--mmlu_path", type=str, default="processed_data_qwen/mmlu_dataset", 
                         help="MMLU数据集路径")
     parser.add_argument("--gsm8k_path", type=str, default="processed_data_qwen/gsm8k_dataset", 

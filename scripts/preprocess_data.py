@@ -7,8 +7,9 @@
 import os
 import argparse
 import random
-from datasets import load_from_disk, Dataset, DatasetDict
+from datasets import load_from_disk, Dataset, DatasetDict, concatenate_datasets
 from transformers import LlamaTokenizer
+import glob
 
 def format_instruction(row):
     """将BELLE数据集格式化为指令格式"""
@@ -62,13 +63,52 @@ def prepare_ceval_dataset(dataset_path, tokenizer):
     """准备C-Eval数据集用于评估"""
     print("正在准备C-Eval数据集...")
     
-    # 加载数据集
-    ceval_dataset = load_from_disk(dataset_path)
+    # C-Eval数据集是按任务分开存储的，需要遍历所有任务目录
+    # 获取所有任务目录
+    task_dirs = glob.glob(os.path.join(dataset_path, "*"))
     
-    # 只使用验证集和测试集
+    if not task_dirs:
+        raise ValueError(f"在 {dataset_path} 中没有找到任何C-Eval任务数据集")
+    
+    # 初始化存放所有任务的验证集和测试集
+    all_validation = []
+    all_test = []
+    
+    # 遍历并加载每个任务
+    for task_dir in task_dirs:
+        if os.path.isdir(task_dir):
+            task_name = os.path.basename(task_dir)
+            print(f"  加载任务: {task_name}")
+            try:
+                # 加载单个任务数据集
+                task_dataset = load_from_disk(task_dir)
+                
+                # 添加任务名称字段，用于后续分析
+                if "validation" in task_dataset:
+                    task_dataset["validation"] = task_dataset["validation"].map(
+                        lambda x: {"task": task_name}, remove_columns=[]
+                    )
+                    all_validation.append(task_dataset["validation"])
+                
+                if "test" in task_dataset:
+                    task_dataset["test"] = task_dataset["test"].map(
+                        lambda x: {"task": task_name}, remove_columns=[]
+                    )
+                    all_test.append(task_dataset["test"])
+            except Exception as e:
+                print(f"  加载任务 {task_name} 失败: {str(e)}")
+    
+    # 合并所有任务的数据集
+    combined_validation = concatenate_datasets(all_validation) if all_validation else None
+    combined_test = concatenate_datasets(all_test) if all_test else None
+    
+    if combined_validation is None and combined_test is None:
+        raise ValueError("无法加载任何C-Eval数据集")
+    
+    # 返回合并后的数据集
     return DatasetDict({
-        "validation": ceval_dataset["validation"],
-        "test": ceval_dataset["test"]
+        "validation": combined_validation if combined_validation else None,
+        "test": combined_test if combined_test else None
     })
 
 def prepare_mmlu_dataset(dataset_path, tokenizer):

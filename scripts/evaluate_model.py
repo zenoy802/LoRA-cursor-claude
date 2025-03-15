@@ -82,11 +82,52 @@ def evaluate_datasets(base_model, lora_model, tokenizer, eval_datasets, results_
     
     for dataset_name, dataset in eval_datasets.items():
         print(f"评估基础模型在 {dataset_name} 上的性能...")
-        dataset_result = evaluate_multiple_choice(
-            base_model, tokenizer, dataset["test"], device=device
-        )
-        base_results[dataset_name] = dataset_result
-        print(f"基础模型在 {dataset_name} 上的准确率: {dataset_result['accuracy']:.4f}")
+        
+        # 检查数据集是否有task字段，如果有，说明是CEVAL或CMMLU等中文数据集，需要分任务评估
+        if "task" in dataset["test"].column_names:
+            # 按任务分组评估
+            tasks = dataset["test"].unique("task")
+            task_results = {}
+            total_correct = 0
+            total_samples = 0
+            
+            for task in tasks:
+                task_dataset = dataset["test"].filter(lambda x: x["task"] == task)
+                print(f"  评估任务: {task} (样本数: {len(task_dataset)})")
+                
+                task_result = evaluate_multiple_choice(
+                    base_model, tokenizer, task_dataset, device=device
+                )
+                
+                task_results[task] = task_result
+                total_correct += task_result["correct"]
+                total_samples += task_result["total"]
+                
+                print(f"  任务 {task} 准确率: {task_result['accuracy']:.4f}")
+            
+            # 计算整体准确率
+            overall_accuracy = total_correct / total_samples if total_samples > 0 else 0
+            
+            # 保存各任务结果和整体结果
+            base_results[dataset_name] = {
+                "task_results": task_results,
+                "overall": {
+                    "accuracy": overall_accuracy,
+                    "correct": total_correct,
+                    "total": total_samples
+                }
+            }
+            
+            print(f"基础模型在 {dataset_name} 上的整体准确率: {overall_accuracy:.4f}")
+        else:
+            # 常规评估（如MMLU等英文数据集）
+            dataset_result = evaluate_multiple_choice(
+                base_model, tokenizer, dataset["test"], device=device
+            )
+            base_results[dataset_name] = {
+                "overall": dataset_result
+            }
+            print(f"基础模型在 {dataset_name} 上的准确率: {dataset_result['accuracy']:.4f}")
     
     results["base_model"] = base_results
     
@@ -96,11 +137,52 @@ def evaluate_datasets(base_model, lora_model, tokenizer, eval_datasets, results_
     
     for dataset_name, dataset in eval_datasets.items():
         print(f"评估LoRA模型在 {dataset_name} 上的性能...")
-        dataset_result = evaluate_multiple_choice(
-            lora_model, tokenizer, dataset["test"], device=device
-        )
-        lora_results[dataset_name] = dataset_result
-        print(f"LoRA模型在 {dataset_name} 上的准确率: {dataset_result['accuracy']:.4f}")
+        
+        # 检查数据集是否有task字段，如果有，说明是CEVAL或CMMLU等中文数据集，需要分任务评估
+        if "task" in dataset["test"].column_names:
+            # 按任务分组评估
+            tasks = dataset["test"].unique("task")
+            task_results = {}
+            total_correct = 0
+            total_samples = 0
+            
+            for task in tasks:
+                task_dataset = dataset["test"].filter(lambda x: x["task"] == task)
+                print(f"  评估任务: {task} (样本数: {len(task_dataset)})")
+                
+                task_result = evaluate_multiple_choice(
+                    lora_model, tokenizer, task_dataset, device=device
+                )
+                
+                task_results[task] = task_result
+                total_correct += task_result["correct"]
+                total_samples += task_result["total"]
+                
+                print(f"  任务 {task} 准确率: {task_result['accuracy']:.4f}")
+            
+            # 计算整体准确率
+            overall_accuracy = total_correct / total_samples if total_samples > 0 else 0
+            
+            # 保存各任务结果和整体结果
+            lora_results[dataset_name] = {
+                "task_results": task_results,
+                "overall": {
+                    "accuracy": overall_accuracy,
+                    "correct": total_correct,
+                    "total": total_samples
+                }
+            }
+            
+            print(f"LoRA模型在 {dataset_name} 上的整体准确率: {overall_accuracy:.4f}")
+        else:
+            # 常规评估（如MMLU等英文数据集）
+            dataset_result = evaluate_multiple_choice(
+                lora_model, tokenizer, dataset["test"], device=device
+            )
+            lora_results[dataset_name] = {
+                "overall": dataset_result
+            }
+            print(f"LoRA模型在 {dataset_name} 上的准确率: {dataset_result['accuracy']:.4f}")
     
     results["lora_model"] = lora_results
     
@@ -109,8 +191,8 @@ def evaluate_datasets(base_model, lora_model, tokenizer, eval_datasets, results_
     changes = {}
     
     for dataset_name in eval_datasets.keys():
-        base_acc = base_results[dataset_name]["accuracy"]
-        lora_acc = lora_results[dataset_name]["accuracy"]
+        base_acc = base_results[dataset_name]["overall"]["accuracy"]
+        lora_acc = lora_results[dataset_name]["overall"]["accuracy"]
         change = (lora_acc - base_acc) / base_acc * 100 if base_acc > 0 else float('inf')
         
         changes[dataset_name] = {
@@ -122,6 +204,31 @@ def evaluate_datasets(base_model, lora_model, tokenizer, eval_datasets, results_
         
         print(f"{dataset_name}: 基础准确率 {base_acc:.4f}, LoRA准确率 {lora_acc:.4f}, "
               f"变化 {lora_acc - base_acc:.4f} ({change:.2f}%)")
+        
+        # 如果是中文数据集，还分析各个任务的性能变化
+        if "task_results" in base_results[dataset_name] and "task_results" in lora_results[dataset_name]:
+            task_changes = {}
+            tasks = set(base_results[dataset_name]["task_results"].keys()).union(
+                set(lora_results[dataset_name]["task_results"].keys()))
+            
+            for task in tasks:
+                if (task in base_results[dataset_name]["task_results"] and 
+                    task in lora_results[dataset_name]["task_results"]):
+                    base_task_acc = base_results[dataset_name]["task_results"][task]["accuracy"]
+                    lora_task_acc = lora_results[dataset_name]["task_results"][task]["accuracy"]
+                    task_change = (lora_task_acc - base_task_acc) / base_task_acc * 100 if base_task_acc > 0 else float('inf')
+                    
+                    task_changes[task] = {
+                        "base_accuracy": base_task_acc,
+                        "lora_accuracy": lora_task_acc,
+                        "absolute_change": lora_task_acc - base_task_acc,
+                        "percentage_change": task_change
+                    }
+                    
+                    print(f"  任务 {task}: 基础准确率 {base_task_acc:.4f}, LoRA准确率 {lora_task_acc:.4f}, "
+                          f"变化 {lora_task_acc - base_task_acc:.4f} ({task_change:.2f}%)")
+            
+            changes[dataset_name]["task_changes"] = task_changes
     
     results["changes"] = changes
     
@@ -130,7 +237,7 @@ def evaluate_datasets(base_model, lora_model, tokenizer, eval_datasets, results_
     with open(os.path.join(results_dir, "evaluation_results.json"), "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
     
-    # 绘制雷达图
+    # 绘制雷达图 - 使用整体结果
     plot_radar_chart(changes, os.path.join(results_dir, "radar_chart.png"))
     
     return results
@@ -214,6 +321,12 @@ def main(args):
     ceval_dataset = load_from_disk(args.ceval_path)
     eval_datasets["C-Eval"] = ceval_dataset
     
+    # 加载CMMLU数据集（如果提供）
+    if args.cmmlu_path and os.path.exists(args.cmmlu_path):
+        print("加载CMMLU数据集...")
+        cmmlu_dataset = load_from_disk(args.cmmlu_path)
+        eval_datasets["CMMLU"] = cmmlu_dataset
+    
     # 加载MMLU数据集（英文能力）
     print("加载MMLU数据集...")
     mmlu_dataset = load_from_disk(args.mmlu_path)
@@ -234,6 +347,8 @@ def main(args):
     
     # 中文能力提升
     chinese_datasets = ["C-Eval"]
+    if "CMMLU" in eval_datasets:
+        chinese_datasets.append("CMMLU")
     chinese_improvement = sum(results["changes"][ds]["absolute_change"] for ds in chinese_datasets) / len(chinese_datasets)
     print(f"中文能力平均提升: {chinese_improvement:.4f}")
     
@@ -260,6 +375,8 @@ if __name__ == "__main__":
                         help="LoRA模型路径")
     parser.add_argument("--ceval_path", type=str, default="processed_data/ceval_dataset", 
                         help="C-Eval数据集路径")
+    parser.add_argument("--cmmlu_path", type=str, default="processed_data/cmmlu_dataset", 
+                        help="CMMLU数据集路径")
     parser.add_argument("--mmlu_path", type=str, default="processed_data/mmlu_dataset", 
                         help="MMLU数据集路径")
     parser.add_argument("--results_dir", type=str, default="evaluation_results", 
