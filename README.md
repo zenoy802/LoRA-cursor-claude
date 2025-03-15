@@ -56,12 +56,12 @@ python scripts/evaluate_baseline.py --model_path models/meta-llama/Llama-2-7b-hf
 
 ### 5. LoRA微调
 ```bash
-python scripts/train_lora.py --model_path models/base_model --dataset_path processed_data/train_dataset --output_dir results/lora-chinese-llama --lora_rank 16
+python scripts/train_lora.py --model_path models/meta-llama/Llama-2-7b-hf --dataset_path processed_data/train_dataset --output_dir results/lora-chinese-llama --lora_rank 16
 ```
 
 ### 6. 评估微调后模型
 ```bash
-python scripts/evaluate_model.py --base_model_path models/base_model --lora_model_path results/lora-chinese-llama --results_dir evaluation_results/lora
+python scripts/evaluate_model.py --base_model_path models/meta-llama/Llama-2-7b-hf --lora_model_path results/lora-chinese-llama --results_dir evaluation_results/lora
 ```
 
 ## 实验设计

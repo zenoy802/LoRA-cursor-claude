@@ -408,3 +408,9 @@ processed_data
 
 # evaluation
 evaluation_results
+
+# training results
+results
+
+# wandb
+wandb

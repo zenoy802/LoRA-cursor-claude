@@ -24,13 +24,13 @@ def main(args):
     
     # 加载tokenizer
     print(f"加载tokenizer: {args.model_path}")
-    tokenizer = LlamaTokenizer.from_pretrained(args.model_path)
+    tokenizer = LlamaTokenizer.from_pretrained(f"{args.model_path}_tokenizer",)
     tokenizer.pad_token = tokenizer.eos_token
     
     # 加载模型
     print(f"加载基础模型: {args.model_path}")
     model = LlamaForCausalLM.from_pretrained(
-        args.model_path,
+        f"{args.model_path}_base_model",
         torch_dtype=torch.float16,
         device_map="auto",
     )
@@ -82,7 +82,8 @@ def main(args):
         save_total_limit=3,
         load_best_model_at_end=True,
         fp16=True,
-        report_to="tensorboard",
+        report_to="wandb",
+        run_name="LoRA-Llama-2-7b-hf"
     )
     
     # 初始化Trainer
