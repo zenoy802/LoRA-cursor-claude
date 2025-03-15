@@ -51,7 +51,7 @@ python scripts/download_model.py --model_name_or_path meta-llama/Llama-2-7b-hf -
 
 ### 4. 评估基础模型（微调前）
 ```bash
-python scripts/evaluate_baseline.py --model_path models/base_model --results_dir evaluation_results/baseline
+python scripts/evaluate_baseline.py --model_path models/meta-llama/Llama-2-7b-hf --results_dir evaluation_results/baseline
 ```
 
 ### 5. LoRA微调
@@ -100,7 +100,7 @@ LoRA配置参数可调整范围：
 ### 1. 下载Qwen基础模型
 
 ```bash
-python scripts/download_qwen_model.py --model_name_or_path "Qwen/Qwen-7B" --output_dir "models"
+python scripts/download_qwen_model.py --model_name_or_path "Qwen/Qwen2.5-7B-Instruct" --output_dir "models"
 ```
 
 ### 2. 预处理数据(Qwen格式)
@@ -112,7 +112,7 @@ python scripts/preprocess_data_qwen.py --data_dir "data" --output_dir "processed
 ### 3. 评估Qwen基线性能
 
 ```bash
-python scripts/evaluate_qwen_baseline.py --model_path "models/base_model" --ceval_path "processed_data_qwen/ceval_dataset" --mmlu_path "processed_data_qwen/mmlu_dataset" --results_dir "evaluation_results/qwen_baseline"
+python scripts/evaluate_qwen_baseline.py --model_path "models/Qwen/Qwen2.5-7B-Instruct" --ceval_path "processed_data_qwen/ceval_dataset" --mmlu_path "processed_data_qwen/mmlu_dataset" --results_dir "evaluation_results/qwen_baseline"
 ```
 
 ### 4. 使用LoRA进行Qwen微调

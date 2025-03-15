@@ -133,13 +133,13 @@ def main(args):
     print(f"使用设备: {device}")
     
     # 加载tokenizer
-    tokenizer = LlamaTokenizer.from_pretrained(args.model_path)
+    tokenizer = LlamaTokenizer.from_pretrained(f"{args.model_path}_tokenizer")
     tokenizer.pad_token = tokenizer.eos_token
     
     # 加载基础模型
     print(f"加载基础模型: {args.model_path}")
     model = LlamaForCausalLM.from_pretrained(
-        args.model_path,
+        f"{args.model_path}_base_model",
         torch_dtype=torch.float16,
         device_map="auto",
     )
