@@ -405,3 +405,6 @@ models
 # data
 data
 processed_data
+
+# evaluation
+evaluation_results

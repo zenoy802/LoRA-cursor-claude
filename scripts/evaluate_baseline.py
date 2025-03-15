@@ -14,7 +14,7 @@ from transformers import LlamaForCausalLM, LlamaTokenizer
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-def evaluate_multiple_choice(model, tokenizer, dataset, max_length=2048, batch_size=1, device="cuda"):
+def evaluate_multiple_choice_chinese(model, tokenizer, dataset, max_length=2048, batch_size=1, device="cuda"):
     """评估模型在多选题数据集上的性能"""
     model.eval()
     correct = 0
@@ -22,14 +22,17 @@ def evaluate_multiple_choice(model, tokenizer, dataset, max_length=2048, batch_s
 
     # TODO: find the reason of padding and not padding
     if tokenizer.pad_token is None:
-            tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+        tokenizer.add_special_tokens({'pad_token': '[PAD]'})
     
     for i in tqdm(range(0, len(dataset), batch_size), desc="Evaluating"):
         batch = dataset[i:i+batch_size]
+        print(batch)
         
-        for item in batch:
+        for i in range(batch_size):
+            question = batch['question'][i]
+            answer = batch['answer'][i]
             # 构造提示
-            prompt = f"问题: {item['question']}\n\n选项:\nA. {item['choices'][0]}\nB. {item['choices'][1]}\nC. {item['choices'][2]}\nD. {item['choices'][3]}\n\n请直接回答选项字母。"
+            prompt = f"问题: {question}\n\n请直接回答选项字母。"
             
             inputs = tokenizer(prompt, return_tensors="pt", max_length=max_length, truncation=True)
             inputs = {k: v.to(device) for k, v in inputs.items()}
@@ -61,13 +64,81 @@ def evaluate_multiple_choice(model, tokenizer, dataset, max_length=2048, batch_s
                 if first_char in options:
                     predicted_answer = first_char
             
-            # 默认选A
-            if predicted_answer is None:
-                predicted_answer = "A"
+            # # 默认选A
+            # if predicted_answer is None:
+            #     predicted_answer = "A"
             
             # 计算正确率
-            correct_answer = options[item['answer']]
-            if predicted_answer == correct_answer:
+            correct_answer = answer
+            if predicted_answer is not None and predicted_answer == correct_answer:
+                correct += 1
+            
+            total += 1
+    
+    accuracy = correct / total if total > 0 else 0
+    return {"accuracy": accuracy, "correct": correct, "total": total}
+
+def evaluate_multiple_choice_english(model, tokenizer, dataset, max_length=2048, batch_size=1, device="cuda"):
+    """评估模型在多选题数据集上的性能"""
+    model.eval()
+    correct = 0
+    total = 0
+
+    # TODO: find the reason of padding and not padding
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    
+    for i in tqdm(range(0, len(dataset), batch_size), desc="Evaluating"):
+        batch = dataset[i:i+batch_size]
+        print(batch)
+        
+        for i in range(batch_size):
+            question = batch['question'][i]
+            choices = batch['choices'][i]
+            answer = batch['answer'][i]
+            answer_map = {0: 'A', 1: 'B', 2: 'C', 3: 'D'}
+            if answer in answer_map:
+                answer = answer_map[answer]
+            # 构造提示
+            prompt = f"Question: {question}\n\nChoices:\nA. {choices[0]}\nB. {choices[1]}\nC. {choices[2]}\nD. {choices[3]}\n\nPlease answer the option letter directly."
+            
+            inputs = tokenizer(prompt, return_tensors="pt", max_length=max_length, truncation=True)
+            inputs = {k: v.to(device) for k, v in inputs.items()}
+            
+            with torch.no_grad():
+                outputs = model.generate(
+                    **inputs,
+                    max_new_tokens=10,
+                    temperature=0.1,
+                    do_sample=False,
+                )
+            
+            # 解码生成的文本
+            generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+            answer_text = generated_text[len(prompt):].strip()
+            
+            # 提取答案
+            options = ["A", "B", "C", "D"]
+            predicted_answer = None
+            
+            for opt in options:
+                if opt in answer_text[:10]:  # 只查看前10个字符
+                    predicted_answer = opt
+                    break
+            
+            # 如果未能提取答案，尝试使用第一个字母
+            if predicted_answer is None and len(answer_text) > 0:
+                first_char = answer_text[0].upper()
+                if first_char in options:
+                    predicted_answer = first_char
+            
+            # # 默认选A
+            # if predicted_answer is None:
+            #     predicted_answer = "A"
+            
+            # 计算正确率
+            correct_answer = answer
+            if predicted_answer is not None and predicted_answer == correct_answer:
                 correct += 1
             
             total += 1
@@ -95,10 +166,11 @@ def evaluate_datasets(model, tokenizer, eval_datasets, results_dir, device="cuda
             total_samples = 0
             
             for task in tasks:
-                task_dataset = dataset["test"].filter(lambda x: x["task"] == task)
+                # CEVAL test集没有答案
+                task_dataset = dataset["validation"].filter(lambda x: x["task"] == task)
                 print(f"  评估任务: {task} (样本数: {len(task_dataset)})")
                 
-                task_result = evaluate_multiple_choice(
+                task_result = evaluate_multiple_choice_chinese(
                     model, tokenizer, task_dataset, device=device
                 )
                 
@@ -124,7 +196,7 @@ def evaluate_datasets(model, tokenizer, eval_datasets, results_dir, device="cuda
             print(f"基础模型在 {dataset_name} 上的整体准确率: {overall_accuracy:.4f}")
         else:
             # 常规评估（如MMLU等英文数据集）
-            dataset_result = evaluate_multiple_choice(
+            dataset_result = evaluate_multiple_choice_english(
                 model, tokenizer, dataset["test"], device=device
             )
             base_results[dataset_name] = {
