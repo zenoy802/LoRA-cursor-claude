@@ -18,28 +18,28 @@ def main(args):
     
     # 下载中文指令微调数据集 - 使用正确的BELLE数据集ID
     print("下载BELLE中文指令微调数据集...")
-    # try:
-    #     # 尝试下载BELLE-2M数据集
-    #     belle_dataset = load_dataset("BelleGroup/train_2M_CN", split="train")
-    #     print("成功加载BELLE-2M数据集")
-    # except Exception as e:
-    #     print(f"无法加载BELLE-2M，尝试加载BELLE-1M: {str(e)}")
-    #     try:
-    #         # 如果失败，尝试下载BELLE-1M数据集
-    #         belle_dataset = load_dataset("BelleGroup/train_1M_CN", split="train")
-    #         print("成功加载BELLE-1M数据集")
-    #     except Exception as e2:
-    #         print(f"无法加载BELLE-1M，尝试加载更小的BELLE数据集: {str(e2)}")
-    #         # 如果再次失败，尝试下载更小的数据集
-    #         belle_dataset = load_dataset("BelleGroup/generated_chat_0.4M", split="train")
-    #         print("成功加载BELLE-0.4M数据集")
+    try:
+        # 尝试下载BELLE-2M数据集
+        belle_dataset = load_dataset("BelleGroup/train_2M_CN", split="train")
+        print("成功加载BELLE-2M数据集")
+    except Exception as e:
+        print(f"无法加载BELLE-2M，尝试加载BELLE-1M: {str(e)}")
+        try:
+            # 如果失败，尝试下载BELLE-1M数据集
+            belle_dataset = load_dataset("BelleGroup/train_1M_CN", split="train")
+            print("成功加载BELLE-1M数据集")
+        except Exception as e2:
+            print(f"无法加载BELLE-1M，尝试加载更小的BELLE数据集: {str(e2)}")
+            # 如果再次失败，尝试下载更小的数据集
+            belle_dataset = load_dataset("BelleGroup/generated_chat_0.4M", split="train")
+            print("成功加载BELLE-0.4M数据集")
     
-    # # 如果只需要子集，可以采样
-    # # TODO: 清洗部分数据，如翻译任务
-    # if args.belle_sample_size > 0:
-    #     belle_dataset = belle_dataset.shuffle(seed=42).select(range(args.belle_sample_size))
-    # belle_dataset.save_to_disk(os.path.join(args.output_dir, "belle_dataset"))
-    # print(f"BELLE数据集已保存，共{len(belle_dataset)}条样本")
+    # 如果只需要子集，可以采样
+    # TODO: 清洗部分数据，如翻译任务
+    if args.belle_sample_size > 0:
+        belle_dataset = belle_dataset.shuffle(seed=42).select(range(args.belle_sample_size))
+    belle_dataset.save_to_disk(os.path.join(args.output_dir, "belle_dataset"))
+    print(f"BELLE数据集已保存，共{len(belle_dataset)}条样本")
     
     # 下载中文评估数据集
     print("下载中文评估数据集...")
