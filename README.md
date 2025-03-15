@@ -89,6 +89,74 @@ LoRA配置参数可调整范围：
 3. 中文和英文能力雷达图对比
 4. 灾难性遗忘现象分析
 
+-------------------------------------------------
+
+# Qwen LoRA中文微调
+
+除了Llama模型外，本项目还支持使用LoRA技术对Qwen系列模型进行中文能力增强微调，并评估微调效果。
+
+## Qwen微调流程
+
+### 1. 下载Qwen基础模型
+
+```bash
+python scripts/download_qwen_model.py --model_name_or_path "Qwen/Qwen-7B" --output_dir "models"
+```
+
+### 2. 预处理数据(Qwen格式)
+
+```bash
+python scripts/preprocess_data_qwen.py --data_dir "data" --output_dir "processed_data_qwen" --model_name_or_path "models/base_model"
+```
+
+### 3. 评估Qwen基线性能
+
+```bash
+python scripts/evaluate_qwen_baseline.py --model_path "models/base_model" --ceval_path "processed_data_qwen/ceval_dataset" --mmlu_path "processed_data_qwen/mmlu_dataset" --results_dir "evaluation_results/qwen_baseline"
+```
+
+### 4. 使用LoRA进行Qwen微调
+
+```bash
+python scripts/train_qwen_lora.py --model_path "models/base_model" --dataset_path "processed_data_qwen/train_dataset" --output_dir "results/lora-chinese-qwen" --num_epochs 3 --batch_size 4 --gradient_accumulation_steps 8 --learning_rate 1e-4
+```
+
+### 5. 评估微调后的Qwen模型
+
+```bash
+python scripts/evaluate_qwen_model.py --base_model_path "models/base_model" --lora_model_path "results/lora-chinese-qwen" --ceval_path "processed_data_qwen/ceval_dataset" --mmlu_path "processed_data_qwen/mmlu_dataset" --results_dir "evaluation_results/qwen"
+```
+
+## Qwen与Llama的主要差异
+
+### 模型处理方式
+- Qwen模型需要设置`trust_remote_code=True`
+- 使用`AutoModelForCausalLM`和`AutoTokenizer`而非Llama专用类
+
+### 指令格式
+Qwen模型使用特殊的聊天格式：
+```
+<|im_start|>user
+指令内容
+<|im_end|>
+<|im_start|>assistant
+回答内容
+<|im_end|>
+```
+
+### LoRA参数调整
+针对Qwen模型的LoRA微调，主要调整以下参数：
+- `lora_rank`: LoRA矩阵的秩，默认为8，可根据需要调整至4-32
+- `lora_alpha`: LoRA缩放因子，默认为32
+- `learning_rate`: 学习率，默认为1e-4，比Llama默认值(2e-5)高
+- `target_modules`: 应用LoRA的模块设置为 `["c_attn", "c_proj", "w1", "w2"]`，适配Qwen架构
+
+## 注意事项
+
+1. Qwen处理结果时需要特别解析`<|im_start|>assistant`和`<|im_end|>`等标记
+2. 建议为Qwen和Llama使用不同的预处理数据目录，避免格式混淆
+3. 评估结果会保存在各自的目录下，便于比较两种模型的性能差异
+
 ## 许可证
 
 MIT
@@ -98,3 +166,4 @@ MIT
 - [LoRA: Low-Rank Adaptation of Large Language Models](https://arxiv.org/abs/2106.09685)
 - [BELLE项目](https://github.com/LianjiaTech/BELLE)
 - [Hugging Face PEFT库](https://github.com/huggingface/peft)
+- [Qwen官方仓库](https://github.com/QwenLM/Qwen)
