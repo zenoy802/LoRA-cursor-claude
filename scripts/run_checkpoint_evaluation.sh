@@ -15,7 +15,7 @@ echo "开始评估Llama模型检查点..."
 LLAMA_BASE_MODEL="models/meta-llama/Llama-2-7b-hf"  # 基础模型路径
 LLAMA_CHECKPOINTS_DIR="results/lora-chinese-llama"  # 检查点目录
 LLAMA_CEVAL_PATH="processed_data/ceval_dataset"  # C-Eval数据集路径
-# LLAMA_CMMLU_PATH="processed_data/cmmlu_dataset"  # CMMLU数据集路径
+LLAMA_CMMLU_PATH="processed_data/cmmlu_dataset"  # CMMLU数据集路径
 LLAMA_MMLU_PATH="processed_data/mmlu_dataset"  # MMLU数据集路径
 
 # 运行Llama检查点评估
@@ -23,7 +23,6 @@ python scripts/evaluate_checkpoints.py \
   --base_model_path $LLAMA_BASE_MODEL \
   --checkpoints_dir $LLAMA_CHECKPOINTS_DIR \
   --ceval_path $LLAMA_CEVAL_PATH \
-  # --cmmlu_path $LLAMA_CMMLU_PATH \
   --mmlu_path $LLAMA_MMLU_PATH \
   --results_dir $RESULTS_DIR \
   --step_interval $STEP_INTERVAL
