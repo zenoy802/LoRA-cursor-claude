@@ -19,10 +19,6 @@ def evaluate_multiple_choice_chinese(model, tokenizer, dataset, max_length=2048,
     model.eval()
     correct = 0
     total = 0
-
-    # TODO: find the reason of padding and not padding
-    if tokenizer.pad_token is None:
-        tokenizer.add_special_tokens({'pad_token': '[PAD]'})
     
     for i in tqdm(range(0, len(dataset), batch_size), desc="Evaluating"):
         batch = dataset[i:i+batch_size]
@@ -83,10 +79,6 @@ def evaluate_multiple_choice_english(model, tokenizer, dataset, max_length=2048,
     model.eval()
     correct = 0
     total = 0
-
-    # TODO: find the reason of padding and not padding
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
     
     for i in tqdm(range(0, len(dataset), batch_size), desc="Evaluating"):
         batch = dataset[i:i+batch_size]
