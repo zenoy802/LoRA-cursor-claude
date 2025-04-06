@@ -414,3 +414,6 @@ results
 
 # wandb
 wandb
+
+# jupyter notebook
+.ipynb_checkpoints
